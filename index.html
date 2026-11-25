@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tesoro Bíblico - Memoria y Secuencia</title>
+  <style>
+    :root {
+      --bg: #f4f7fb;
+      --card: #ffffff;
+      --primary: #3b82f6;
+      --primary-dark: #2563eb;
+      --success: #10b981;
+      --error: #ef4444;
+      --text: #1e293b;
+      --border: #cbd5e1;
+    }
+
+    * { box-sizing: border-box; font-family: system-ui, -apple-system, sans-serif; }
+    body { background: var(--bg); color: var(--text); margin: 0; padding: 20px; display: flex; justify-content: center; }
+
+    .container { max-width: 960px; width: 100%; display: flex; flex-direction: column; gap: 20px; }
+
+    /* Tarjeta Superior: Versículo */
+    .verse-card {
+      background: var(--card);
+      padding: 24px;
+      border-radius: 16px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+      text-align: center;
+      position: relative;
+    }
+
+    .verse-text {
+      font-size: 1.25rem;
+      line-height: 1.6;
+      font-weight: 500;
+      transition: filter 0.4s ease, opacity 0.4s ease;
+      user-select: none;
+    }
+
+    /* Clase que difumina el texto al jugar */
+    .blurred {
+      filter: blur(8px);
+      opacity: 0.4;
+      pointer-events: none;
+    }
+
+    .btn {
+      background: var(--primary);
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 10px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 15px;
+      transition: background 0.2s;
+    }
+    .btn:hover { background: var(--primary-dark); }
+    .btn-success { background: var(--success); }
+
+    /* Tablero Principal: 2 Columnas */
+    .board {
+      display: grid;
+      grid-template-columns: 1.2fr 0.8fr;
+      gap: 20px;
+      opacity: 0.5;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+    }
+    .board.active { opacity: 1; pointer-events: auto; }
+
+    @media (max-width: 768px) { .board { grid-template-columns: 1fr; } }
+
+    .panel {
+      background: var(--card);
+      padding: 20px;
+      border-radius: 16px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+    }
+
+    .panel h3 { margin-top: 0; font-size: 1.1rem; color: #475569; border-bottom: 1px solid var(--border); padding-bottom: 10px; }
+
+    /* Secuencia (Izquierda) */
+    .sequence-list { display: flex; flex-direction: column; gap: 12px; }
+    
+    .step-row { display: flex; align-items: center; gap: 12px; }
+    .step-num { font-weight: 700; color: var(--primary); min-width: 65px; }
+
+    .fixed-piece {
+      background: #e2e8f0;
+      padding: 12px 16px;
+      border-radius: 10px;
+      flex: 1;
+      font-weight: 500;
+    }
+
+    .drop-slot {
+      border: 2px dashed var(--border);
+      background: #f8fafc;
+      min-height: 46px;
+      border-radius: 10px;
+      flex: 1;
+      display: flex;
+      align-items: center;
+      padding: 8px 14px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .drop-slot.selected { border-color: var(--primary); background: #eff6ff; }
+    .drop-slot.filled { border-style: solid; border-color: var(--primary); background: #eff6ff; font-weight: 500; }
+    .drop-slot.correct { border-color: var(--success); background: #ecfdf5; color: #065f46; }
+    .drop-slot.wrong { border-color: var(--error); background: #fef2f2; color: #991b1b; }
+
+    /* Opciones / Fichas (Derecha) */
+    .options-grid { display: flex; flex-direction: column; gap: 10px; }
+
+    .option-card {
+      background: #fff;
+      border: 1px solid var(--border);
+      padding: 12px 16px;
+      border-radius: 10px;
+      cursor: pointer;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.03);
+      transition: transform 0.15s, border-color 0.15s;
+    }
+    .option-card:hover { transform: translateY(-2px); border-color: var(--primary); }
+    .option-card.used { opacity: 0.35; pointer-events: none; text-decoration: line-through; }
+
+    .feedback { margin-top: 15px; font-weight: 600; text-align: center; min-height: 24px; }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <!-- Zona 1: Lectura y Memoria -->
+  <div class="verse-card">
+    <div id="verseDisplay" class="verse-text"></div>
+    <button id="btnStart" class="btn">Jugar (Ocultar versículo)</button>
+  </div>
+
+  <!-- Zona 2: Tablero de Juego -->
+  <div id="gameBoard" class="board">
+    <!-- Columna Izquierda: Secuencia -->
+    <div class="panel">
+      <h3>Secuencia del Versículo</h3>
+      <div id="sequenceContainer" class="sequence-list"></div>
+      <button id="btnCheck" class="btn btn-success" style="width: 100%; margin-top: 20px;">Verificar Respuestas</button>
+      <div id="feedback" class="feedback"></div>
+    </div>
+
+    <!-- Columna Derecha: Banco de Frases -->
+    <div class="panel">
+      <h3>Frases Disponibles</h3>
+      <p style="font-size: 0.85rem; color: #64748b; margin-top: -5px;">Haz clic en un espacio vacío y luego en la frase correcta.</p>
+      <div id="optionsContainer" class="options-grid"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const nivelActual = {
+    textoCompleto: "“Y aparecí a Abraham, a Isaac y a Jacob como Dios Omnipotente, mas en mi nombre JEHOVÁ no me di a conocer a ellos.” — Éxodo 6:3",
+    secuencia: [
+      { texto: "Y aparecí a Abraham, a Isaac y a Jacob", fija: true },
+      { texto: "como Dios Omnipotente,", fija: false },
+      { texto: "mas en mi nombre JEHOVÁ;", fija: true },
+      { texto: "no me di a conocer a ellos.", fija: false },
+      { texto: "Éxodo 6:3", fija: false }
+    ],
+    distractores: [
+      "como el Dios Todopoderoso,",
+      "no me revelé ante sus hijos.",
+      "Génesis 17:1",
+      "y establecí mi pacto eterno,"
+    ]
+  };
+
+  let slotSeleccionado = null;
+  const respuestasUsuario = {}; // Guarda { indiceSlot: { texto, optionId } }
+
+  // Elementos DOM
+  const verseDisplay = document.getElementById('verseDisplay');
+  const btnStart = document.getElementById('btnStart');
+  const gameBoard = document.getElementById('gameBoard');
+  const sequenceContainer = document.getElementById('sequenceContainer');
+  const optionsContainer = document.getElementById('optionsContainer');
+  const btnCheck = document.getElementById('btnCheck');
+  const feedback = document.getElementById('feedback');
+
+  function init() {
+    verseDisplay.textContent = nivelActual.textoCompleto;
+    renderSecuencia();
+    renderOpciones();
+  }
+
+  function renderSecuencia() {
+    sequenceContainer.innerHTML = '';
+    nivelActual.secuencia.forEach((parte, index) => {
+      const row = document.createElement('div');
+      row.className = 'step-row';
+
+      const label = document.createElement('span');
+      label.className = 'step-num';
+      label.textContent = `Parte ${index + 1}:`;
+      row.appendChild(label);
+
+      if (parte.fija) {
+        const div = document.createElement('div');
+        div.className = 'fixed-piece';
+        div.textContent = parte.texto;
+        row.appendChild(div);
+      } else {
+        const slot = document.createElement('div');
+        slot.className = 'drop-slot';
+        slot.dataset.index = index;
+        slot.textContent = 'Selecciona este espacio...';
+        
+        slot.addEventListener('click', () => seleccionarSlot(slot, index));
+        row.appendChild(slot);
+      }
+      sequenceContainer.appendChild(row);
+    });
+  }
+
+  function renderOpciones() {
+    // Extraer respuestas correctas de los slots vacíos + distractores
+    const correctas = nivelActual.secuencia.filter(p => !p.fija).map(p => p.texto);
+    const todasLasFichas = [...correctas, ...nivelActual.distractores];
+    
+    // Mezclar aleatoriamente
+    todasLasFichas.sort(() => Math.random() - 0.5);
+
+    optionsContainer.innerHTML = '';
+    todasLasFichas.forEach((texto, idx) => {
+      const card = document.createElement('div');
+      card.className = 'option-card';
+      card.id = `opt-${idx}`;
+      card.textContent = texto;
+      card.addEventListener('click', () => asignarOpcion(texto, card.id));
+      optionsContainer.appendChild(card);
+    });
+  }
+
+  function seleccionarSlot(slotElement, index) {
+    // Si ya tenía una respuesta, la liberamos al hacer clic para corregir rápido
+    if (respuestasUsuario[index]) {
+      const prevOptId = respuestasUsuario[index].optionId;
+      document.getElementById(prevOptId).classList.remove('used');
+      delete respuestasUsuario[index];
+      slotElement.textContent = 'Selecciona este espacio...';
+      slotElement.classList.remove('filled', 'correct', 'wrong');
+    }
+
+    document.querySelectorAll('.drop-slot').forEach(s => s.classList.remove('selected'));
+    slotElement.classList.add('selected');
+    slotSeleccionado = { element: slotElement, index };
+  }
+
+  function asignarOpcion(texto, optionId) {
+    // Si no hay slot seleccionado, selecciona automáticamente el primer slot vacío
+    if (!slotSeleccionado) {
+      const primerVacio = Array.from(document.querySelectorAll('.drop-slot'))
+        .find(s => !respuestasUsuario[s.dataset.index]);
+      if (!primerVacio) return;
+      seleccionarSlot(primerVacio, primerVacio.dataset.index);
+    }
+
+    const { element, index } = slotSeleccionado;
+    element.textContent = texto;
+    element.classList.remove('selected');
+    element.classList.add('filled');
+
+    document.getElementById(optionId).classList.add('used');
+    respuestasUsuario[index] = { texto, optionId };
+    slotSeleccionado = null;
+  }
+
+  // Botón Jugar / Mostrar de nuevo
+  btnStart.addEventListener('click', () => {
+    const isBlurred = verseDisplay.classList.toggle('blurred');
+    if (isBlurred) {
+      gameBoard.classList.add('active');
+      btnStart.textContent = 'Espiar versículo (Pausa)';
+    } else {
+      gameBoard.classList.remove('active');
+      btnStart.textContent = 'Continuar Jugando';
+    }
+  });
+
+  // Verificar respuestas
+  btnCheck.addEventListener('click', () => {
+    let aciertos = 0;
+    let totalSlots = 0;
+
+    nivelActual.secuencia.forEach((parte, index) => {
+      if (!parte.fija) {
+        totalSlots++;
+        const slotEl = document.querySelector(`.drop-slot[data-index="${index}"]`);
+        const resp = respuestasUsuario[index];
+
+        slotEl.classList.remove('correct', 'wrong');
+        if (resp && resp.texto === parte.texto) {
+          slotEl.classList.add('correct');
+          aciertos++;
+        } else {
+          slotEl.classList.add('wrong');
+        }
+      }
+    });
+
+    if (aciertos === totalSlots) {
+      feedback.style.color = 'var(--success)';
+      feedback.textContent = '¡Excelente! Completaste el tesoro bíblico correctamente.';
+      verseDisplay.classList.remove('blurred');
+    } else {
+      feedback.style.color = 'var(--error)';
+      feedback.textContent = `Tienes ${aciertos} de ${totalSlots} correctas. Haz clic en las rojas para corregir.`;
+    }
+  });
+
+  init();
+</script>
+</body>
+</html>
